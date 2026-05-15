@@ -34,7 +34,7 @@ jobs:
           from huggingface_hub import HfApi
 
           token = os.environ["HF_TOKEN"]
-          repo_id = "Yanany/imdb-sentiment-analysis"
+          repo_id = "Yan-sys37/imdb-sentiment-analysis"
           api = HfApi()
 
           # Create repo if it doesn't exist
