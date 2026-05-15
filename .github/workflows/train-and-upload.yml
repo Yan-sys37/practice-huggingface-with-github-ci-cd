@@ -1,0 +1,50 @@
+name: Train and Upload to Hugging Face
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  train-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Train model
+        run: python train.py
+
+      - name: Upload to Hugging Face Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python - <<'EOF'
+          import os
+          from huggingface_hub import HfApi
+
+          token = os.environ["HF_TOKEN"]
+          repo_id = "Yanany/iris-classifier"
+          api = HfApi()
+
+          api.create_repo(repo_id, token=token, exist_ok=True)
+
+          files = ["model.joblib", "train.py", "requirements.txt"]
+          for filename in files:
+              api.upload_file(
+                  path_or_fileobj=filename,
+                  path_in_repo=filename,
+                  repo_id=repo_id,
+                  token=token,
+              )
+          print("Model uploaded to Hugging Face Hub successfully!")
+          EOF
