@@ -29,19 +29,22 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python - <<'EOF'
           import os
           from huggingface_hub import HfApi
 
           token = os.environ["HF_TOKEN"]
-          repo_id = "Yan-sys37/imdb-sentiment-glove"
+          repo_id = "Yan-sys37/imdb-sentiment-analysis"
           api = HfApi()
 
-          # Create repo if it doesn't exist
           api.create_repo(repo_id, token=token, exist_ok=True)
 
-          # Upload all model artifacts
-          for filename in ["imdb_glove_model.h5", "tokenizer.pkl", "train.py", "requirements.txt", "tiny_glove.json"]:
+          # 版本A用这组
+          # files = ["imdb_sentiment_model.h5", "tfidf_vectorizer.pkl", "train.py", "requirements.txt"]
+          
+          # 版本B用这组
+          files = ["imdb_glove_model.h5", "tokenizer.pkl", "train.py", "requirements.txt"]
+
+          for filename in files:
               api.upload_file(
                   path_or_fileobj=filename,
                   path_in_repo=filename,
@@ -50,5 +53,5 @@ jobs:
               )
               print(f"Uploaded {filename}")
 
-          print(f"Model uploaded to https://huggingface.co/{repo_id}")
-          EOF
+          print(f"✅ 模型已上传至: https://huggingface.co/{repo_id}")
+        shell: python
