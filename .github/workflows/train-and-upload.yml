@@ -1,20 +1,23 @@
-name: IMDB Sentiment Analysis
+name: Train and Upload to Hugging Face
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   workflow_dispatch:
 
 jobs:
-  train:
+  train-and-upload:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -22,22 +25,41 @@ jobs:
       - name: Train model
         run: python train.py
 
-      - name: Upload to Hugging Face
+      - name: Upload to Hugging Face Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python - <<'EOF'
-          from huggingface_hub import HfApi
           import os
-          api = HfApi()
-          token = os.environ["HF_TOKEN"]
-          repo_id = "Yanany/imdb-sentiment-model"
+          from huggingface_hub import HfApi
 
+          token = os.environ["HF_TOKEN"]
+          repo_id = "Yanany/imdb-sentiment-analysis"
+          api = HfApi()
+
+          # Create repo if it doesn't exist
           api.create_repo(repo_id, token=token, exist_ok=True)
-          api.upload_file(
-              path_or_fileobj="imdb_sentiment_model.h5",
-              path_in_repo="imdb_sentiment_model.h5",
-              repo_id=repo_id,
-              token=token
-          )
+
+          # Upload all model artifacts
+          files = [
+              "train.py",
+              "requirements.txt",
+              "imdb_sentiment_model.h5",
+              "tfidf_vectorizer.pkl"
+          ]
+
+          for filename in files:
+              try:
+                  api.upload_file(
+                      path_or_fileobj=filename,
+                      path_in_repo=filename,
+                      repo_id=repo_id,
+                      token=token,
+                  )
+                  print(f"Uploaded: {filename}")
+              except:
+                  print(f"Skipped (not found): {filename}")
+
+          print(f"\n✅ Success! Model uploaded to:")
+          print(f"https://huggingface.co/{repo_id}")
           EOF
