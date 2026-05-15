@@ -38,20 +38,19 @@ jobs:
 
           api.create_repo(repo_id, token=token, exist_ok=True)
 
-          # 版本A用这组
-          # files = ["imdb_sentiment_model.h5", "tfidf_vectorizer.pkl", "train.py", "requirements.txt"]
-          
-          # 版本B用这组
-          files = ["imdb_glove_model.h5", "tokenizer.pkl", "train.py", "requirements.txt"]
-
+          # 这里的文件名，必须和train.py里保存的文件名完全一致！
+          files = ["model.h5", "tfidf.pkl", "train.py", "requirements.txt"]
           for filename in files:
-              api.upload_file(
-                  path_or_fileobj=filename,
-                  path_in_repo=filename,
-                  repo_id=repo_id,
-                  token=token,
-              )
-              print(f"Uploaded {filename}")
+              if os.path.exists(filename):
+                  api.upload_file(
+                      path_or_fileobj=filename,
+                      path_in_repo=filename,
+                      repo_id=repo_id,
+                      token=token,
+                  )
+                  print(f"Uploaded {filename}")
+              else:
+                  print(f"WARNING: File not found: {filename}")
 
           print(f"✅ 模型已上传至: https://huggingface.co/{repo_id}")
         shell: python
