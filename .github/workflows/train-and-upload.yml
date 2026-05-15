@@ -33,7 +33,7 @@ jobs:
           from huggingface_hub import HfApi
 
           token = os.environ["HF_TOKEN"]
-          repo_id = "Yanany/iris-classifier"
+          repo_id = "Yan-sys37/iris-classifier"
           api = HfApi()
 
           api.create_repo(repo_id, token=token, exist_ok=True)
