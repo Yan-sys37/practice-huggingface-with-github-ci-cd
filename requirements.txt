@@ -1,1 +1,7 @@
-3
+pandas
+numpy
+scikit-learn
+joblib
+tensorflow
+re
+huggingface-hub
