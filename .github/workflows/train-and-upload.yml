@@ -34,32 +34,21 @@ jobs:
           from huggingface_hub import HfApi
 
           token = os.environ["HF_TOKEN"]
-          repo_id = "Yan-sys37/imdb-sentiment-analysis"
+          repo_id = "Yan-sys37/imdb-sentiment-glove"
           api = HfApi()
 
           # Create repo if it doesn't exist
           api.create_repo(repo_id, token=token, exist_ok=True)
 
           # Upload all model artifacts
-          files = [
-              "train.py",
-              "requirements.txt",
-              "imdb_sentiment_model.h5",
-              "tfidf_vectorizer.pkl"
-          ]
+          for filename in ["imdb_glove_model.h5", "tokenizer.pkl", "train.py", "requirements.txt", "tiny_glove.json"]:
+              api.upload_file(
+                  path_or_fileobj=filename,
+                  path_in_repo=filename,
+                  repo_id=repo_id,
+                  token=token,
+              )
+              print(f"Uploaded {filename}")
 
-          for filename in files:
-              try:
-                  api.upload_file(
-                      path_or_fileobj=filename,
-                      path_in_repo=filename,
-                      repo_id=repo_id,
-                      token=token,
-                  )
-                  print(f"Uploaded: {filename}")
-              except:
-                  print(f"Skipped (not found): {filename}")
-
-          print(f"\n✅ Success! Model uploaded to:")
-          print(f"https://huggingface.co/{repo_id}")
+          print(f"Model uploaded to https://huggingface.co/{repo_id}")
           EOF
