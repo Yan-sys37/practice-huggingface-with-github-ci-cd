@@ -10,13 +10,12 @@ from tensorflow.keras.layers import Embedding, Dense, Dropout, GlobalAveragePool
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-# 1. 加载 IMDB 数据
-url = "https://raw.githubusercontent.com/rasbt/python-machine-learning-book-3rd-edition/master/ch08/movie_data.csv.gz"
-df = pd.read_csv(url, compression="gzip")
+# 加载数据
+df = pd.read_csv("imdb_top_500.csv")
 texts = df["review"].astype(str).values
 labels = df["sentiment"].values
 
-# 2. 文本清洗
+# 文本清洗
 def clean_text(text):
     text = re.sub(r"<.*?>", " ", text)
     text = re.sub(r"[^a-zA-Z ]", " ", text)
@@ -24,9 +23,9 @@ def clean_text(text):
 
 texts = [clean_text(t) for t in texts]
 
-# 3. Tokenization
-MAX_VOCAB = 5000
-MAX_LEN = 200
+# Token化
+MAX_VOCAB = 3000
+MAX_LEN = 150
 
 tokenizer = Tokenizer(num_words=MAX_VOCAB)
 tokenizer.fit_on_texts(texts)
@@ -36,7 +35,7 @@ y = np.array(labels)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# 4. 加载 GloVe 词向量
+# 加载 tiny_glove.json
 with open("tiny_glove.json", "r", encoding="utf-8") as f:
     glove_dict = json.load(f)
 
@@ -45,26 +44,25 @@ embedding_matrix = np.zeros((MAX_VOCAB, EMBEDDING_DIM))
 
 for word, i in tokenizer.word_index.items():
     if i < MAX_VOCAB and word in glove_dict:
-        embedding_matrix[i] = glove_dict[word]
+        embedding_matrix[i] = np.array(glove_dict[word])
 
-# 5. 神经网络 + GloVe 嵌入
+# 构建带GloVe嵌入的模型
 model = Sequential([
     Embedding(MAX_VOCAB, EMBEDDING_DIM, weights=[embedding_matrix], input_length=MAX_LEN, trainable=False),
     GlobalAveragePooling1D(),
-    Dense(256, activation="relu"),
-    Dropout(0.4),
     Dense(128, activation="relu"),
+    Dropout(0.3),
     Dense(1, activation="sigmoid")
 ])
 
 model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
-model.fit(X_train, y_train, epochs=5, batch_size=32, validation_split=0.1)
+model.fit(X_train, y_train, epochs=5, batch_size=16)
 
-# 6. 评估
+# 评估
 y_pred = (model.predict(X_test) > 0.5).astype(int)
-print(f"\n✅ Test Accuracy: {accuracy_score(y_test, y_pred):.4f}")
+print(f"✅ 测试集准确率: {accuracy_score(y_test, y_pred):.4f}")
 
-# 7. 保存
+# 保存
 model.save("imdb_glove_model.h5")
 joblib.dump(tokenizer, "tokenizer.pkl")
-print("\n✅ Done!")
+print("✅ 模型文件已保存")
