@@ -1,123 +1,53 @@
-"""
-生成GitHub Pages可用的报告
-"""
-
-import json
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime
-import os
+import numpy as np
+import re
+import joblib
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
 
-def generate_visualizations():
-    """生成可视化图表"""
-    
-    # 读取结果
-    with open('models/results.json', 'r') as f:
-        results = json.load(f)
-    
-    # 创建数据框
-    models = []
-    accuracies = []
-    
-    for model_name, data in results.items():
-        if 'accuracy' in data:
-            models.append(model_name)
-            accuracies.append(data['accuracy'])
-    
-    df = pd.DataFrame({'Model': models, 'Accuracy': accuracies})
-    df = df.sort_values('Accuracy', ascending=False)
-    
-    # 创建图表目录
-    os.makedirs('reports/plots', exist_ok=True)
-    
-    # 1. 准确率条形图
-    plt.figure(figsize=(10, 6))
-    bars = plt.barh(df['Model'], df['Accuracy'], color=['#2E86AB' if acc >= 0.8 else '#F24236' for acc in df['Accuracy']])
-    plt.xlabel('Accuracy')
-    plt.title('Model Performance Comparison')
-    plt.xlim([0, 1])
-    
-    # 添加数值标签
-    for bar, acc in zip(bars, df['Accuracy']):
-        plt.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2, 
-                f'{acc:.4f}', va='center')
-    
-    plt.tight_layout()
-    plt.savefig('reports/plots/accuracy_comparison.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    
-    # 2. 目标达成图表
-    target_acc = 0.92
-    best_acc = df['Accuracy'].max()
-    
-    plt.figure(figsize=(8, 4))
-    colors = ['#F24236', '#2E86AB', '#4CB944']
-    labels = ['Below 0.8', '0.8-0.92', 'Above 0.92']
-    
-    categories = []
-    counts = []
-    
-    for i, label in enumerate(labels):
-        if i == 0:
-            count = (df['Accuracy'] < 0.8).sum()
-        elif i == 1:
-            count = ((df['Accuracy'] >= 0.8) & (df['Accuracy'] < target_acc)).sum()
-        else:
-            count = (df['Accuracy'] >= target_acc).sum()
-        
-        categories.append(label)
-        counts.append(count)
-    
-    plt.pie(counts, labels=categories, colors=colors, autopct='%1.1f%%')
-    plt.title('Model Accuracy Distribution')
-    plt.savefig('reports/plots/accuracy_distribution.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    
-    # 生成Markdown报告
-    with open('reports/README.md', 'w') as f:
-        f.write(f"""# IMDB Sentiment Analysis Report
+# 加载数据
+df = pd.read_csv("imdb_top_500.csv")
 
-## Summary
-- **Training Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-- **Target Accuracy**: {target_acc:.4f}
-- **Best Accuracy Achieved**: {best_acc:.4f}
-- **Status**: {'✅ PASS' if best_acc >= target_acc else '❌ FAIL'}
+# 把标签从字符串转成 0/1（解决 acc=0.5 的关键！）
+le = LabelEncoder()
+y = le.fit_transform(df["label"])
 
-## Model Performance
+# 文本清洗
+def clean(t):
+    t = t.lower()
+    t = re.sub(r"<.*?>", " ", t)
+    t = re.sub(r"[^a-zA-Z ]", " ", t)
+    return t
 
-| Model | Accuracy | Status |
-|-------|----------|---------|
-""")
-        
-        for _, row in df.iterrows():
-            status = "✅" if row['Accuracy'] >= target_acc else "⚠️" if row['Accuracy'] >= 0.8 else "❌"
-            f.write(f"| {row['Model']} | {row['Accuracy']:.4f} | {status} |\n")
-        
-        f.write(f"""
+X_raw = [clean(str(t)) for t in df["text"]]
 
-## Visualizations
+# TF-IDF 特征提取
+tfidf = TfidfVectorizer(max_features=3000, stop_words="english")
+X = tfidf.fit_transform(X_raw).toarray()
 
-![Accuracy Comparison](plots/accuracy_comparison.png)
-![Accuracy Distribution](plots/accuracy_distribution.png)
+# 划分训练/测试集
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-## Recommendations
-""")
-        
-        if best_acc >= target_acc:
-            f.write("✅ The model has successfully achieved the target accuracy. Good job!\n")
-        else:
-            f.write("""
-⚠️ The model did not reach the target accuracy. Consider:
+# 构建模型
+model = Sequential([
+    Dense(128, activation="relu", input_shape=(3000,)),
+    Dropout(0.3),
+    Dense(64, activation="relu"),
+    Dense(1, activation="sigmoid")
+])
 
-1. **Increase training data** - Add more labeled examples
-2. **Feature engineering** - Create more informative features
-3. **Model tuning** - Perform hyperparameter optimization
-4. **Try different architectures** - Experiment with deep learning models
-5. **Ensemble methods** - Combine multiple models
-""")
-    
-    print("✅ Visualizations and reports generated successfully")
+model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+model.fit(X_train, y_train, epochs=8, batch_size=16, validation_split=0.1)
 
-if __name__ == "__main__":
-    generate_visualizations()
+# 评估并打印准确率
+y_pred = (model.predict(X_test) > 0.5).astype(int)
+acc = accuracy_score(y_test, y_pred)
+print(f"\n✅ FINAL TEST ACCURACY: {acc:.4f}")
+
+# 保存模型和向量化器
+model.save("model.h5")
+joblib.dump(tfidf, "tfidf.pkl")
